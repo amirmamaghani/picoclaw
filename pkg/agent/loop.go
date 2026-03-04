@@ -686,7 +686,7 @@ func (al *AgentLoop) runAgentLoop(
 	agent.Sessions.AddMessage(opts.SessionKey, "user", opts.UserMessage)
 
 	// 4. Run LLM iteration loop
-	finalContent, iteration, streamSent, err := al.runLLMIteration(ctx, agent, messages, opts)
+	finalContent, iteration, err := al.runLLMIteration(ctx, agent, messages, opts)
 	if err != nil {
 		return "", err
 	}
@@ -708,8 +708,11 @@ func (al *AgentLoop) runAgentLoop(
 		al.maybeSummarize(agent, opts.SessionKey, opts.Channel, opts.ChatID)
 	}
 
-	// 8. Optional: send response via bus (skip if streaming already delivered it)
-	if opts.SendResponse && !streamSent {
+	// 8. Optional: send response via bus.
+	// Even when streaming already delivered the message, we still publish so that
+	// preSend can clean up typing/reaction/placeholder. The streamActive flag in
+	// the manager's preSend will skip the actual Send (no duplicate).
+	if opts.SendResponse {
 		al.bus.PublishOutbound(ctx, bus.OutboundMessage{
 			Channel: opts.Channel,
 			ChatID:  opts.ChatID,
@@ -727,11 +730,6 @@ func (al *AgentLoop) runAgentLoop(
 			"final_length": len(finalContent),
 		})
 
-	// When streaming already delivered the message, return empty so the caller
-	// (Run loop) doesn't publish a duplicate via PublishOutbound.
-	if streamSent {
-		return "", nil
-	}
 	return finalContent, nil
 }
 
@@ -792,18 +790,15 @@ func (al *AgentLoop) handleReasoning(
 }
 
 // runLLMIteration executes the LLM call loop with tool handling.
-// Returns (finalContent, iteration, streamed, error).
-// When streamed is true, the response was already delivered to the user via
-// streaming (sendMessageDraft + sendMessage) and PublishOutbound should be skipped.
+// Returns (finalContent, iteration, error).
 func (al *AgentLoop) runLLMIteration(
 	ctx context.Context,
 	agent *AgentInstance,
 	messages []providers.Message,
 	opts processOptions,
-) (string, int, bool, error) {
+) (string, int, error) {
 	iteration := 0
 	var finalContent string
-	var streamed bool
 
 	// Check if both the provider and channel support streaming
 	streamProvider, providerCanStream := agent.Provider.(providers.StreamingProvider)
@@ -969,7 +964,7 @@ func (al *AgentLoop) runLLMIteration(
 					"iteration": iteration,
 					"error":     err.Error(),
 				})
-			return "", iteration, false, fmt.Errorf("LLM call failed after retries: %w", err)
+			return "", iteration, fmt.Errorf("LLM call failed after retries: %w", err)
 		}
 
 		go al.handleReasoning(
@@ -999,8 +994,6 @@ func (al *AgentLoop) runLLMIteration(
 					logger.WarnCF("agent", "Stream finalize failed", map[string]any{
 						"error": err.Error(),
 					})
-				} else {
-					streamed = true
 				}
 			}
 
@@ -1009,7 +1002,7 @@ func (al *AgentLoop) runLLMIteration(
 					"agent_id":      agent.ID,
 					"iteration":     iteration,
 					"content_chars": len(finalContent),
-					"streamed":      streamed,
+					"streamed":      streamer != nil,
 				})
 			break
 		}
@@ -1174,7 +1167,7 @@ func (al *AgentLoop) runLLMIteration(
 		}
 	}
 
-	return finalContent, iteration, streamed, nil
+	return finalContent, iteration, nil
 }
 
 // updateToolContexts updates the context for tools that need channel/chatID info.
