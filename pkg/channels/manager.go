@@ -133,10 +133,18 @@ func (m *Manager) preSend(ctx context.Context, name string, msg bus.OutboundMess
 		}
 	}
 
-	// 3. If a stream already finalized this message, skip both placeholder and send
+	// 3. If a stream already finalized this message, delete the placeholder and skip send
 	if _, loaded := m.streamActive.LoadAndDelete(key); loaded {
-		// Also clean up any stale placeholder
-		m.placeholders.Delete(key)
+		if v, loaded := m.placeholders.LoadAndDelete(key); loaded {
+			if entry, ok := v.(placeholderEntry); ok && entry.id != "" {
+				// Prefer deleting the placeholder (cleaner UX than editing to same content)
+				if deleter, ok := ch.(MessageDeleter); ok {
+					deleter.DeleteMessage(ctx, msg.ChatID, entry.id) // best effort
+				} else if editor, ok := ch.(MessageEditor); ok {
+					editor.EditMessage(ctx, msg.ChatID, entry.id, msg.Content) // fallback
+				}
+			}
+		}
 		return true
 	}
 
