@@ -207,32 +207,23 @@ func (m *Manager) GetStreamer(ctx context.Context, channelName, chatID string) (
 		return nil, false
 	}
 
-	// Wrap the channels.Streamer to track finalization for preSend coordination
-	return &managerStreamer{
-		inner:   streamer,
-		manager: m,
-		key:     channelName + ":" + chatID,
+	// Mark streamActive on Finalize so preSend knows to clean up the placeholder
+	key := channelName + ":" + chatID
+	return &finalizeHookStreamer{
+		Streamer:   streamer,
+		onFinalize: func() { m.streamActive.Store(key, true) },
 	}, true
 }
 
-// managerStreamer wraps a channels.Streamer to mark streamActive on Finalize.
-type managerStreamer struct {
-	inner   Streamer
-	manager *Manager
-	key     string
+// finalizeHookStreamer wraps a Streamer to run a hook on Finalize.
+type finalizeHookStreamer struct {
+	Streamer
+	onFinalize func()
 }
 
-func (s *managerStreamer) Update(ctx context.Context, content string) error {
-	return s.inner.Update(ctx, content)
-}
-
-func (s *managerStreamer) Finalize(ctx context.Context, content string) error {
-	s.manager.streamActive.Store(s.key, true)
-	return s.inner.Finalize(ctx, content)
-}
-
-func (s *managerStreamer) Cancel(ctx context.Context) {
-	s.inner.Cancel(ctx)
+func (s *finalizeHookStreamer) Finalize(ctx context.Context, content string) error {
+	s.onFinalize()
+	return s.Streamer.Finalize(ctx, content)
 }
 
 // initChannel is a helper that looks up a factory by name and creates the channel.
