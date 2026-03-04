@@ -15,6 +15,11 @@ type MessageEditor interface {
 	EditMessage(ctx context.Context, chatID string, messageID string, content string) error
 }
 
+// MessageDeleter — channels that can delete a message by ID.
+type MessageDeleter interface {
+	DeleteMessage(ctx context.Context, chatID string, messageID string) error
+}
+
 // ReactionCapable — channels that can add a reaction (e.g. 👀) to an inbound message.
 // ReactToMessage adds a reaction and returns an undo function to remove it.
 // The undo function MUST be idempotent and safe to call multiple times.
