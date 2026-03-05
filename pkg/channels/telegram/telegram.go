@@ -3,12 +3,12 @@ package telegram
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
 	"regexp"
 	"slices"
-	"math/rand"
 	"strconv"
 	"strings"
 	"sync"

@@ -103,7 +103,9 @@ func NewProviderWithMaxTokensFieldAndTimeout(
 }
 
 // buildRequestBody constructs the common request body for Chat and ChatStream.
-func (p *Provider) buildRequestBody(messages []Message, tools []ToolDefinition, model string, options map[string]any) map[string]any {
+func (p *Provider) buildRequestBody(
+	messages []Message, tools []ToolDefinition, model string, options map[string]any,
+) map[string]any {
 	model = normalizeModel(model, p.apiBase)
 
 	requestBody := map[string]any{
