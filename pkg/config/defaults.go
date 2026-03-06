@@ -363,6 +363,11 @@ func DefaultConfig() *Config {
 					APIKey:     "",
 					MaxResults: 5,
 				},
+				SearXNG: SearXNGConfig{
+					Enabled:    false,
+					BaseURL:    "",
+					MaxResults: 5,
+				},
 				GLMSearch: GLMSearchConfig{
 					Enabled:      false,
 					APIKey:       "",
@@ -382,6 +387,7 @@ func DefaultConfig() *Config {
 					Enabled: true,
 				},
 				EnableDenyPatterns: true,
+				TimeoutSeconds:     60,
 			},
 			Skills: SkillsToolsConfig{
 				ToolConfig: ToolConfig{
@@ -398,6 +404,9 @@ func DefaultConfig() *Config {
 					MaxSize:    50,
 					TTLSeconds: 300,
 				},
+			},
+			SendFile: ToolConfig{
+				Enabled: true,
 			},
 			MCP: MCPConfig{
 				ToolConfig: ToolConfig{
