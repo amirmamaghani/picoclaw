@@ -298,7 +298,7 @@ func (c *TelegramChannel) EditMessage(ctx context.Context, chatID string, messag
 
 // DeleteMessage implements channels.MessageDeleter.
 func (c *TelegramChannel) DeleteMessage(ctx context.Context, chatID string, messageID string) error {
-	cid, err := parseChatID(chatID)
+	cid, _, err := parseTelegramChatID(chatID)
 	if err != nil {
 		return err
 	}
@@ -861,7 +861,7 @@ func (c *TelegramChannel) BeginStream(ctx context.Context, chatID string) (chann
 		return nil, fmt.Errorf("streaming disabled in config")
 	}
 
-	cid, err := parseChatID(chatID)
+	cid, _, err := parseTelegramChatID(chatID)
 	if err != nil {
 		return nil, err
 	}
