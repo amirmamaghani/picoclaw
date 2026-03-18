@@ -68,3 +68,7 @@ func (p *HTTPProvider) ChatStream(
 func (p *HTTPProvider) GetDefaultModel() string {
 	return ""
 }
+
+func (p *HTTPProvider) SupportsNativeSearch() bool {
+	return p.delegate.SupportsNativeSearch()
+}

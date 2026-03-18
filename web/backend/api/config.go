@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 
 	"github.com/sipeed/picoclaw/pkg/config"
 )
@@ -48,6 +49,9 @@ func (h *Handler) handleUpdateConfig(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Invalid JSON: %v", err), http.StatusBadRequest)
 		return
 	}
+	if execAllowRemoteOmitted(body) {
+		cfg.Tools.Exec.AllowRemote = config.DefaultConfig().Tools.Exec.AllowRemote
+	}
 
 	if errs := validateConfig(&cfg); len(errs) > 0 {
 		w.Header().Set("Content-Type", "application/json")
@@ -66,6 +70,20 @@ func (h *Handler) handleUpdateConfig(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+func execAllowRemoteOmitted(body []byte) bool {
+	var raw struct {
+		Tools *struct {
+			Exec *struct {
+				AllowRemote *bool `json:"allow_remote"`
+			} `json:"exec"`
+		} `json:"tools"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return false
+	}
+	return raw.Tools == nil || raw.Tools.Exec == nil || raw.Tools.Exec.AllowRemote == nil
 }
 
 // handlePatchConfig partially updates the system configuration using JSON Merge Patch (RFC 7396).
@@ -171,6 +189,27 @@ func validateConfig(cfg *config.Config) []string {
 		errs = append(errs, "channels.discord.token is required when discord channel is enabled")
 	}
 
+	if cfg.Tools.Exec.Enabled {
+		if cfg.Tools.Exec.EnableDenyPatterns {
+			errs = append(
+				errs,
+				validateRegexPatterns("tools.exec.custom_deny_patterns", cfg.Tools.Exec.CustomDenyPatterns)...)
+		}
+		errs = append(
+			errs,
+			validateRegexPatterns("tools.exec.custom_allow_patterns", cfg.Tools.Exec.CustomAllowPatterns)...)
+	}
+
+	return errs
+}
+
+func validateRegexPatterns(field string, patterns []string) []string {
+	var errs []string
+	for index, pattern := range patterns {
+		if _, err := regexp.Compile(pattern); err != nil {
+			errs = append(errs, fmt.Sprintf("%s[%d] is not a valid regular expression: %v", field, index, err))
+		}
+	}
 	return errs
 }
 
