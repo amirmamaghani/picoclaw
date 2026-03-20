@@ -189,12 +189,13 @@ func TestClientChannel_ReceivesServerMessage(t *testing.T) {
 
 	// The echoed message.create is processed by handleServerMessage which
 	// calls HandleMessage → PublishInbound. Consume it from the bus.
-	msg, ok := mb.ConsumeInbound(ctx)
-	if !ok {
+	select {
+	case msg := <-mb.InboundChan():
+		if msg.Content != "ping" {
+			t.Fatalf("received = %q, want %q", msg.Content, "ping")
+		}
+	case <-ctx.Done():
 		t.Fatal("timed out waiting for echoed message")
-	}
-	if msg.Content != "ping" {
-		t.Fatalf("received = %q, want %q", msg.Content, "ping")
 	}
 }
 
