@@ -269,8 +269,11 @@ type finalizeHookStreamer struct {
 }
 
 func (s *finalizeHookStreamer) Finalize(ctx context.Context, content string) error {
+	if err := s.Streamer.Finalize(ctx, content); err != nil {
+		return err
+	}
 	s.onFinalize()
-	return s.Streamer.Finalize(ctx, content)
+	return nil
 }
 
 // initChannel is a helper that looks up a factory by name and creates the channel.
